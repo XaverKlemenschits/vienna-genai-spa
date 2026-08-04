@@ -25,13 +25,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Save API keys to localStorage when form inputs change
-form.addEventListener('input', (event) => {
-  if (event.target.id === 'twelvedata-key') {
-    localStorage.setItem(TWELVE_DATA_KEY_STORAGE, event.target.value.trim());
-  } else if (event.target.id === 'openrouter-key') {
-    localStorage.setItem(OPEN_ROUTER_KEY_STORAGE, event.target.value.trim());
-  }
+// Save API keys to localStorage when fields lose focus (more efficient than saving on every keystroke)
+const twelveDataInput = document.getElementById('twelvedata-key');
+const openRouterInput = document.getElementById('openrouter-key');
+
+twelveDataInput.addEventListener('blur', () => {
+  localStorage.setItem(TWELVE_DATA_KEY_STORAGE, twelveDataInput.value.trim());
+});
+
+openRouterInput.addEventListener('blur', () => {
+  localStorage.setItem(OPEN_ROUTER_KEY_STORAGE, openRouterInput.value.trim());
 });
 
 form.addEventListener('submit', async (event) => {
