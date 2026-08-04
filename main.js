@@ -13,6 +13,161 @@ const results = document.getElementById('results');
 const TRADING_DAYS_PER_YEAR = 252;
 const MAX_TICKERS = 8; // Due to Twelve Data free plan rate limits
 const GRID_SEARCH_STEPS = 20; // For brute-force optimization of small portfolios
+const STORAGE_PREFIX = 'portfolio-optimizer-';
+
+// Initialize settings functionality
+function initializeSettings() {
+  const settingsBtn = document.getElementById('settings-btn');
+  const settingsModal = document.getElementById('settings-modal');
+  const saveBtn = document.getElementById('save-settings');
+  const clearBtn = document.getElementById('clear-settings');
+  const closeBtn = document.getElementById('close-settings');
+  const twelvedataInput = document.getElementById('saved-twelvedata-key');
+  const openrouterInput = document.getElementById('saved-openrouter-key');
+  
+  // Load saved keys into modal inputs
+  function loadSavedKeys() {
+    const savedTwelveData = localStorage.getItem(STORAGE_PREFIX + 'twelvedata-key');
+    const savedOpenRouter = localStorage.getItem(STORAGE_PREFIX + 'openrouter-key');
+    
+    if (twelvedataInput) twelvedataInput.value = savedTwelveData || '';
+    if (openrouterInput) openrouterInput.value = savedOpenRouter || '';
+  }
+  
+  // Save keys to localStorage
+  function saveKeys() {
+    if (twelvedataInput && twelvedataInput.value.trim()) {
+      localStorage.setItem(STORAGE_PREFIX + 'twelvedata-key', twelvedataInput.value.trim());
+    }
+    if (openrouterInput && openrouterInput.value.trim()) {
+      localStorage.setItem(STORAGE_PREFIX + 'openrouter-key', openrouterInput.value.trim());
+    }
+    // Show success message
+    showNotification('API keys saved to browser storage', 'success');
+    // Pre-fill the main form if it's empty
+    prefillFormFields();
+    // Update button state
+    updateSettingsButton();
+  }
+  
+  // Clear saved keys
+  function clearKeys() {
+    localStorage.removeItem(STORAGE_PREFIX + 'twelvedata-key');
+    localStorage.removeItem(STORAGE_PREFIX + 'openrouter-key');
+    if (twelvedataInput) twelvedataInput.value = '';
+    if (openrouterInput) openrouterInput.value = '';
+    showNotification('Saved API keys cleared', 'success');
+    // Update button state
+    updateSettingsButton();
+  }
+  
+  // Pre-fill main form fields with saved values
+  function prefillFormFields() {
+    const mainTwelveData = document.getElementById('twelvedata-key');
+    const mainOpenRouter = document.getElementById('openrouter-key');
+    
+    const savedTwelveData = localStorage.getItem(STORAGE_PREFIX + 'twelvedata-key');
+    const savedOpenRouter = localStorage.getItem(STORAGE_PREFIX + 'openrouter-key');
+    
+    if (mainTwelveData && savedTwelveData && !mainTwelveData.value.trim()) {
+      mainTwelveData.value = savedTwelveData;
+    }
+    if (mainOpenRouter && savedOpenRouter && !mainOpenRouter.value.trim()) {
+      mainOpenRouter.value = savedOpenRouter;
+    }
+  }
+  
+  // Toggle modal visibility
+  function toggleModal() {
+    if (settingsModal) {
+      settingsModal.classList.toggle('active');
+      if (settingsModal.classList.contains('active')) {
+        loadSavedKeys();
+      }
+    }
+  }
+  
+  // Close modal when clicking outside
+  function handleOutsideClick(event) {
+    if (settingsModal && !settingsModal.contains(event.target) && 
+        !settingsBtn.contains(event.target)) {
+      settingsModal.classList.remove('active');
+    }
+  }
+  
+  // Show notification
+  function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    notification.style.position = 'fixed';
+    notification.style.top = '100px';
+    notification.style.right = '20px';
+    notification.style.padding = '12px 20px';
+    notification.style.borderRadius = '4px';
+    notification.style.background = type === 'success' ? '#4caf50' : '#007acc';
+    notification.style.color = 'white';
+    notification.style.fontSize = '0.85rem';
+    notification.style.zIndex = '1001';
+    notification.style.animation = 'fadeIn 0.2s ease';
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.style.animation = 'fadeOut 0.2s ease';
+      setTimeout(() => notification.remove(), 200);
+    }, 3000);
+  }
+  
+  // Add event listeners
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', toggleModal);
+  }
+  if (saveBtn) {
+    saveBtn.addEventListener('click', saveKeys);
+  }
+  if (clearBtn) {
+    clearBtn.addEventListener('click', clearKeys);
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', toggleModal);
+  }
+  
+  // Close on outside click
+  document.addEventListener('click', handleOutsideClick);
+  
+  // Close on escape key
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && settingsModal) {
+      settingsModal.classList.remove('active');
+    }
+  });
+  
+  // Pre-fill form fields on page load
+  prefillFormFields();
+  
+  // Update settings button to show if keys are saved
+  function updateSettingsButton() {
+    const savedTwelveData = localStorage.getItem(STORAGE_PREFIX + 'twelvedata-key');
+    const savedOpenRouter = localStorage.getItem(STORAGE_PREFIX + 'openrouter-key');
+    
+    if (settingsBtn) {
+      if (savedTwelveData || savedOpenRouter) {
+        settingsBtn.innerHTML = '✅';
+        settingsBtn.title = 'API keys saved - Click to manage';
+      } else {
+        settingsBtn.innerHTML = '⚙️';
+        settingsBtn.title = 'Save API Keys';
+      }
+    }
+  }
+
+  // Call update on load
+  updateSettingsButton();
+}
+
+// Initialize settings when DOM is loaded
+document.addEventListener('DOMContentLoaded', initializeSettings);
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();

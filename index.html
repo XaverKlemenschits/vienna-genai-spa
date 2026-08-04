@@ -8,8 +8,36 @@
 </head>
 <body>
   <header class="app-header">
-    <h1>Portfolio Optimiser</h1>
-    <p class="subtitle">Maximize Sharpe Ratio for your portfolio allocation</p>
+    <div class="header-content">
+      <div class="header-left">
+        <h1>Portfolio Optimiser</h1>
+        <p class="subtitle">Maximize Sharpe Ratio for your portfolio allocation</p>
+      </div>
+      <div class="header-right">
+        <button id="settings-btn" class="settings-btn" title="Save API Keys">⚙️</button>
+      </div>
+    </div>
+    <div id="settings-modal" class="settings-modal">
+      <div class="settings-content">
+        <h3>Save API Keys</h3>
+        <p class="settings-description">Save your API keys to browser storage for convenience. They will be available next time you visit.</p>
+        <div class="settings-form">
+          <div class="setting-item">
+            <label for="saved-twelvedata-key">Twelve Data API Key</label>
+            <input type="password" id="saved-twelvedata-key" placeholder="Enter Twelve Data key">
+          </div>
+          <div class="setting-item">
+            <label for="saved-openrouter-key">OpenRouter API Key (optional)</label>
+            <input type="password" id="saved-openrouter-key" placeholder="Enter OpenRouter key">
+          </div>
+          <div class="settings-buttons">
+            <button id="save-settings" class="btn-primary">Save</button>
+            <button id="clear-settings" class="btn-secondary">Clear</button>
+            <button id="close-settings" class="btn-close">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </header>
 
   <main class="app-main">

@@ -13,8 +13,13 @@ A **Markowitz Mean-Variance Optimization** WebApp that calculates the optimal po
 - **Visual Allocation**: Shows portfolio weights in both chart and table formats
 - **AI Research Notes**: Optional integration with OpenRouter for AI-generated ticker analysis
 - **Rate Limit Protection**: Batch processing to respect Twelve Data's free tier limits
+- **API Key Management**: Save API keys to browser storage for convenience across sessions
 
 ## Usage
+
+### Quick Start
+
+1. **Save API Keys** (Optional): Click the ⚙️ settings button in the top-right to save your API keys to browser storage. They'll be available next time you visit.
 
 ### Prerequisites
 
@@ -195,7 +200,7 @@ The app handles various error conditions:
 
 - **Modern Browsers**: Chrome, Firefox, Safari, Edge (ES6+ support required)
 - **Mobile**: Responsive design for tablets and phones
-- **Requirements**: JavaScript enabled, internet connection for API calls
+- **Requirements**: JavaScript enabled, internet connection for API calls, localStorage support for saving API keys
 
 ## Development Notes
 
@@ -237,3 +242,10 @@ This project is provided as-is for educational purposes. See the original reposi
 - **Sharpe Ratio**: William F. Sharpe (1966)
 - **Data**: [Twelve Data](https://twelvedata.com/)
 - **AI**: [OpenRouter](https://openrouter.ai/) (optional)
+
+## Privacy Note
+
+- **API keys are stored only in your browser** using localStorage
+- **No server storage**: Your API keys never leave your device
+- **Browser-only**: All calculations and data processing happen in your browser
+- **Security**: Keys are stored encrypted by your browser's security model
