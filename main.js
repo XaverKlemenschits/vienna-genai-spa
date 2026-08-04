@@ -805,6 +805,8 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
     <div class="portfolio-results">
       <h2>Portfolio Optimization Results</h2>
       
+      ${createCorrelationChartsHTML(tickers, alignedData)}
+      
       <div class="portfolio-summary">
         <h3>Portfolio Summary</h3>
         <p class="summary-explanation">
@@ -984,6 +986,11 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
   `;
   
   results.innerHTML = html;
+  
+  // Draw the charts after HTML is inserted
+  setTimeout(() => {
+    drawAllCorrelationCharts(alignedData);
+  }, 10);
 }
 
 /**
@@ -1167,4 +1174,386 @@ function getDiversificationGrade(highCorrPct, negativeCorrPct) {
   if (negCorr >= 5 && highCorr <= 70) return '⚠️ Fair - Some diversification';
   if (highCorr > 70) return '❌ Poor - Highly correlated assets';
   return '📊 Moderate - Average diversification';
+}
+
+// ============================================================================
+// CORRELATION ROLLING AVERAGE CHART FUNCTIONS
+// ============================================================================
+
+/**
+ * Calculate rolling correlations between all pairs of tickers
+ * Returns an array of correlation matrices, one for each window position
+ */
+function calculateRollingCorrelations(alignedData, windowSize = 60) {
+  const tickers = alignedData.map(d => d.ticker);
+  const nTickers = tickers.length;
+  const nObservations = alignedData[0].closes.length;
+  
+  if (nObservations < windowSize) {
+    // Not enough data for rolling window, return single correlation matrix
+    return [calculateCurrentCorrelationMatrix(alignedData)];
+  }
+  
+  const rollingCorrelations = [];
+  
+  // For each window position
+  for (let i = windowSize - 1; i < nObservations; i++) {
+    // Extract the window of returns for each ticker
+    const windowReturns = [];
+    
+    for (const data of alignedData) {
+      const closes = data.closes;
+      const windowCloses = closes.slice(i - windowSize + 1, i + 1);
+      
+      // Calculate returns within this window
+      const returns = [];
+      for (let j = 1; j < windowCloses.length; j++) {
+        const dailyReturn = (windowCloses[j] - windowCloses[j - 1]) / windowCloses[j - 1];
+        returns.push(dailyReturn);
+      }
+      windowReturns.push(returns);
+    }
+    
+    // Calculate correlation matrix for this window
+    const corrMatrix = calculateWindowCorrelationMatrix(windowReturns);
+    rollingCorrelations.push({
+      date: alignedData[0].dates[i],
+      correlations: corrMatrix
+    });
+  }
+  
+  return rollingCorrelations;
+}
+
+/**
+ * Calculate correlation matrix for a window of returns
+ */
+function calculateWindowCorrelationMatrix(windowReturns) {
+  const nAssets = windowReturns.length;
+  const nObs = windowReturns[0].length;
+  
+  if (nObs === 0) return Array(nAssets).fill().map(() => Array(nAssets).fill(0));
+  
+  // Calculate mean returns for each asset in this window
+  const meanReturns = windowReturns.map(returns => {
+    const sum = returns.reduce((acc, r) => acc + r, 0);
+    return sum / nObs;
+  });
+  
+  // Calculate covariance matrix for this window
+  const covMatrix = [];
+  for (let i = 0; i < nAssets; i++) {
+    const row = [];
+    for (let j = 0; j < nAssets; j++) {
+      if (i === j) {
+        // Variance
+        const returnsI = windowReturns[i];
+        const meanI = meanReturns[i];
+        const variance = returnsI.reduce((acc, r) => acc + Math.pow(r - meanI, 2), 0) / (nObs - 1);
+        row.push(variance);
+      } else {
+        // Covariance
+        const returnsI = windowReturns[i];
+        const returnsJ = windowReturns[j];
+        const meanI = meanReturns[i];
+        const meanJ = meanReturns[j];
+        
+        let covariance = 0;
+        for (let k = 0; k < nObs; k++) {
+          covariance += (returnsI[k] - meanI) * (returnsJ[k] - meanJ);
+        }
+        row.push(covariance / (nObs - 1));
+      }
+    }
+    covMatrix.push(row);
+  }
+  
+  // Convert covariance to correlation matrix
+  const corrMatrix = [];
+  const stdDevs = covMatrix.map(row => Math.sqrt(row[0]));
+  
+  for (let i = 0; i < nAssets; i++) {
+    const row = [];
+    for (let j = 0; j < nAssets; j++) {
+      if (i === j) {
+        row.push(1);
+      } else {
+        const correlation = covMatrix[i][j] / (stdDevs[i] * stdDevs[j]);
+        row.push(correlation);
+      }
+    }
+    corrMatrix.push(row);
+  }
+  
+  return corrMatrix;
+}
+
+/**
+ * Calculate current correlation matrix from aligned data
+ */
+function calculateCurrentCorrelationMatrix(alignedData) {
+  const nAssets = alignedData.length;
+  const returnsData = calculateDailyReturns(alignedData);
+  const { covMatrix } = calculatePortfolioStatistics(returnsData);
+  
+  // Convert covariance to correlation
+  const stdDevs = covMatrix.map(row => Math.sqrt(row[0]));
+  const corrMatrix = [];
+  
+  for (let i = 0; i < nAssets; i++) {
+    const row = [];
+    for (let j = 0; j < nAssets; j++) {
+      if (i === j) {
+        row.push(1);
+      } else {
+        const correlation = covMatrix[i][j] / (stdDevs[i] * stdDevs[j]);
+        row.push(correlation);
+      }
+    }
+    corrMatrix.push(row);
+  }
+  
+  return corrMatrix;
+}
+
+/**
+ * Calculate rolling average of correlation values for each pair
+ */
+function calculateCorrelationRollingAverages(alignedData, windowSize = 60) {
+  const tickers = alignedData.map(d => d.ticker);
+  const nTickers = tickers.length;
+  
+  // Calculate all rolling correlations
+  const rollingCorrs = calculateRollingCorrelations(alignedData, windowSize);
+  
+  if (rollingCorrs.length === 0) return [];
+  
+  // For each pair of tickers, calculate rolling average of their correlation
+  const pairRollingAverages = [];
+  
+  for (let i = 0; i < nTickers; i++) {
+    for (let j = i + 1; j < nTickers; j++) {
+      const pairName = `${tickers[i]}-${tickers[j]}`;
+      
+      // Extract correlation values for this pair across all windows
+      const corrValues = rollingCorrs.map(window => window.correlations[i][j]);
+      
+      // Calculate rolling average of these correlation values
+      const rollingAvg = calculateRollingAverage(corrValues, Math.min(windowSize, corrValues.length));
+      
+      pairRollingAverages.push({
+        pair: pairName,
+        ticker1: tickers[i],
+        ticker2: tickers[j],
+        dates: rollingCorrs.map(w => w.date),
+        correlations: corrValues,
+        rollingAverages: rollingAvg
+      });
+    }
+  }
+  
+  return pairRollingAverages;
+}
+
+/**
+ * Calculate rolling average for a data series
+ */
+function calculateRollingAverage(data, windowSize) {
+  const result = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    if (i < windowSize - 1) {
+      // Not enough data for full window, use available data
+      const sum = data.slice(0, i + 1).reduce((acc, val) => acc + val, 0);
+      result.push(sum / (i + 1));
+    } else {
+      // Full window available
+      const window = data.slice(i - windowSize + 1, i + 1);
+      const sum = window.reduce((acc, val) => acc + val, 0);
+      result.push(sum / windowSize);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Draw correlation rolling average chart
+ */
+function drawCorrelationChart(canvas, pairData, windowSize) {
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+  const padding = { top: 20, right: 40, bottom: 40, left: 60 };
+  
+  // Clear canvas
+  ctx.clearRect(0, 0, width, height);
+  
+  // Draw background
+  ctx.fillStyle = '#252526';
+  ctx.fillRect(0, 0, width, height);
+  
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  
+  const dates = pairData.dates;
+  const correlations = pairData.correlations;
+  const rollingAverages = pairData.rollingAverages;
+  
+  if (correlations.length === 0) return;
+  
+  // Function to convert date index to X coordinate
+  const indexToX = (index) => padding.left + (index / (dates.length - 1)) * chartWidth;
+  
+  // Function to convert correlation value to Y coordinate
+  const corrToY = (corr) => padding.top + chartHeight - ((corr + 1) / 2) * chartHeight;
+  
+  // Draw grid lines
+  ctx.strokeStyle = '#3e3e42';
+  ctx.lineWidth = 1;
+  
+  // Horizontal grid lines (-1 to +1 correlation)
+  for (let i = 0; i <= 4; i++) {
+    const corrValue = 1 - (i / 2); // 1, 0.5, 0, -0.5, -1
+    const y = corrToY(corrValue);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+    
+    // Add correlation labels
+    ctx.fillStyle = '#969696';
+    ctx.font = '11px Segoe UI, Roboto, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(corrValue.toFixed(1), padding.left - 5, y + 3);
+  }
+  
+  // Draw correlation line (more transparent, as it's noisy)
+  ctx.beginPath();
+  ctx.moveTo(indexToX(0), corrToY(correlations[0]));
+  for (let i = 1; i < correlations.length; i++) {
+    ctx.lineTo(indexToX(i), corrToY(correlations[i]));
+  }
+  ctx.strokeStyle = 'rgba(0, 122, 204, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  
+  // Draw rolling average line (solid, prominent)
+  ctx.beginPath();
+  ctx.moveTo(indexToX(0), corrToY(rollingAverages[0]));
+  for (let i = 1; i < rollingAverages.length; i++) {
+    ctx.lineTo(indexToX(i), corrToY(rollingAverages[i]));
+  }
+  ctx.strokeStyle = '#4caf50';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  // Draw zero line for reference
+  ctx.beginPath();
+  ctx.moveTo(padding.left, corrToY(0));
+  ctx.lineTo(width - padding.right, corrToY(0));
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  
+  // Draw legend
+  ctx.fillStyle = '#d4d4d4';
+  ctx.font = '12px Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'left';
+  
+  // Raw correlation legend
+  ctx.fillStyle = 'rgba(0, 122, 204, 0.3)';
+  ctx.fillText('• Daily Correlation', width - 180, height - 25);
+  
+  // Rolling average legend
+  ctx.fillStyle = '#4caf50';
+  ctx.fillText('─ 60-Day Rolling Avg', width - 180, height - 10);
+  
+  // Draw axes labels
+  ctx.fillStyle = '#969696';
+  ctx.font = '11px Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Correlation', padding.left + chartWidth / 2, height - 5);
+  
+  // Draw date labels
+  const dateStep = Math.max(1, Math.floor(dates.length / 8));
+  for (let i = 0; i < dates.length; i += dateStep) {
+    const x = indexToX(i);
+    ctx.fillStyle = '#969696';
+    ctx.font = '10px Segoe UI, Roboto, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(dates[i], x, height - 5);
+  }
+  
+  // Draw title
+  ctx.fillStyle = '#d4d4d4';
+  ctx.font = '12px Segoe UI, Roboto, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${pairData.pair} Correlation`, width / 2, 15);
+}
+
+/**
+ * Create HTML for correlation rolling average charts
+ */
+function createCorrelationChartsHTML(tickers, alignedData) {
+  if (!alignedData || alignedData.length === 0 || tickers.length < 2) return '';
+  
+  const chartHeight = 200;
+  const chartWidth = 700;
+  
+  // Calculate rolling correlation averages
+  const pairData = calculateCorrelationRollingAverages(alignedData, 60);
+  
+  if (pairData.length === 0) return '';
+  
+  let html = `
+    <div class="correlation-charts">
+      <h3>60-Day Rolling Average of Correlations</h3>
+      <p class="chart-description">
+        These charts show how the correlations between your assets have changed over time, with a 60-day rolling average to smooth out short-term fluctuations. 
+        <strong>Understanding correlation trends is crucial for portfolio optimization</strong> — when correlations increase, diversification benefits decrease, 
+        and the optimizer may reduce allocation to those assets to maintain optimal risk levels.
+      </p>
+  `;
+  
+  // Create a chart for each pair
+  for (const data of pairData) {
+    const canvasId = `corr-chart-${data.pair.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    
+    html += `
+      <div class="individual-chart">
+        <h4>${data.pair} <span class="pair-subtitle">(${data.ticker1} vs ${data.ticker2})</span></h4>
+        <div class="chart-container">
+          <canvas id="${canvasId}" width="${chartWidth}" height="${chartHeight}"></canvas>
+        </div>
+      </div>
+    `;
+  }
+  
+  html += `
+    </div>
+  `;
+  
+  return html;
+}
+
+/**
+ * Draw all correlation charts after they are rendered in DOM
+ */
+function drawAllCorrelationCharts(alignedData) {
+  if (!alignedData || alignedData.length === 0) return;
+  
+  // Calculate correlation rolling averages
+  const pairData = calculateCorrelationRollingAverages(alignedData, 60);
+  
+  // Draw individual correlation charts
+  for (const data of pairData) {
+    const canvasId = `corr-chart-${data.pair.replace(/[^a-zA-Z0-9]/g, '-')}`;
+    const canvas = document.getElementById(canvasId);
+    if (canvas) {
+      drawCorrelationChart(canvas, data, 60);
+    }
+  }
 }

@@ -583,6 +583,85 @@ button:focus {
     font-size: 0.8rem;
   }
   
+  /* Correlation Charts Styling */
+  .correlation-charts {
+    border: 1px solid var(--vscode-border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    background: var(--vscode-panel-bg);
+    margin-bottom: 1.5rem;
+  }
+  
+  .correlation-charts h3 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--vscode-text);
+    border-bottom: 1px solid var(--vscode-border);
+    padding-bottom: 0.5rem;
+  }
+  
+  .chart-description {
+    margin: 0 0 1.5rem;
+    font-size: 0.85rem;
+    color: var(--vscode-text-secondary);
+    line-height: 1.5;
+  }
+  
+  .individual-chart {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--vscode-border);
+    border-radius: 4px;
+    padding: 1rem;
+    background: var(--vscode-input-bg);
+  }
+  
+  .individual-chart:last-child {
+    margin-bottom: 0;
+  }
+  
+  .individual-chart h4 {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--vscode-accent);
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  
+  .pair-subtitle {
+    font-weight: normal;
+    color: var(--vscode-text-secondary);
+    font-size: 0.8rem;
+  }
+  
+  .combined-chart {
+    margin-top: 1.5rem;
+    border: 1px solid var(--vscode-border);
+    border-radius: 4px;
+    padding: 1rem;
+    background: var(--vscode-input-bg);
+  }
+  
+  .combined-chart h4 {
+    margin: 0 0 0.75rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--vscode-accent);
+    font-family: 'Consolas', 'Courier New', monospace;
+  }
+  
+  .chart-container {
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
+  }
+  
+  .chart-container canvas {
+    background: var(--vscode-panel-bg);
+    border-radius: 3px;
+    border: 1px solid var(--vscode-border);
+  }
+  
   .matrix-table {
     font-size: 0.75rem;
   }
@@ -595,5 +674,15 @@ button:focus {
   .correlation-legend {
     flex-direction: column;
     align-items: flex-start;
+  }
+  
+  .individual-chart,
+  .combined-chart {
+    width: 100%;
+  }
+  
+  .chart-container canvas {
+    width: 100%;
+    height: auto;
   }
 }
