@@ -154,3 +154,216 @@ button:focus {
   color: var(--vscode-text-muted);
   border-top: 1px solid var(--vscode-border);
 }
+
+/* Loading state */
+.loading {
+  display: none;
+  padding: 1rem;
+  text-align: center;
+  color: var(--vscode-text-secondary);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.loading::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--vscode-border);
+  border-top: 2px solid var(--vscode-accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Portfolio results container */
+.portfolio-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Chart containers */
+.chart-container {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1rem;
+  background: var(--vscode-panel-bg);
+}
+
+.chart-container h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
+.chart-container canvas {
+  max-height: 400px;
+  width: 100% !important;
+}
+
+/* Correlation matrix container */
+.correlation-container {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1rem;
+  background: var(--vscode-panel-bg);
+  grid-column: span 2;
+}
+
+.correlation-container h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
+/* Correlation matrix table */
+.correlation-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.correlation-table th,
+.correlation-table td {
+  padding: 0.5rem;
+  text-align: center;
+  border: 1px solid var(--vscode-border);
+}
+
+.correlation-table th {
+  background: var(--vscode-background);
+  color: var(--vscode-text);
+  font-weight: 600;
+}
+
+.correlation-table tbody th {
+  background: var(--vscode-panel-bg);
+  color: var(--vscode-text-secondary);
+  font-weight: normal;
+}
+
+/* Correlation cell heatmap coloring */
+.corr-cell {
+  font-weight: 600;
+}
+
+.corr-very-high {
+  background: rgba(0, 150, 0, 0.8);
+  color: white;
+}
+
+.corr-high {
+  background: rgba(0, 100, 0, 0.6);
+  color: white;
+}
+
+.corr-medium {
+  background: var(--vscode-panel-bg);
+  color: var(--vscode-text);
+}
+
+.corr-low {
+  background: rgba(150, 0, 0, 0.6);
+  color: white;
+}
+
+.corr-very-low {
+  background: rgba(200, 0, 0, 0.8);
+  color: white;
+}
+
+/* Prices table */
+.prices-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.85rem;
+}
+
+.prices-table th,
+.prices-table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-border);
+}
+
+.prices-table th {
+  background: var(--vscode-background);
+  color: var(--vscode-text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.prices-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Portfolio summary */
+.portfolio-summary {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1rem;
+  background: var(--vscode-panel-bg);
+  grid-column: span 2;
+}
+
+.portfolio-summary h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
+.portfolio-summary p {
+  margin: 0.25rem 0;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Latest prices container */
+.latest-prices {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1rem;
+  background: var(--vscode-panel-bg);
+  grid-column: span 2;
+}
+
+.latest-prices h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .portfolio-results {
+    grid-template-columns: 1fr;
+  }
+  
+  .correlation-container,
+  .portfolio-summary,
+  .latest-prices {
+    grid-column: span 1;
+  }
+  
+  .chart-container {
+    min-height: 300px;
+  }
+}

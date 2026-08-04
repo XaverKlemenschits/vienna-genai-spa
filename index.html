@@ -3,39 +3,57 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GenAI Finance App</title>
+  <title>Portfolio Optimiser</title>
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
   <header class="app-header">
-    <h1>GenAI Finance App</h1>
-    <p class="subtitle">Template starting point</p>
+    <h1>Portfolio Optimiser</h1>
+    <p class="subtitle">Optimise your stock portfolio using inverse volatility and Sharpe ratio weighting</p>
   </header>
 
   <main class="app-main">
     <section class="panel">
       <form id="ticker-form">
-        <label for="ticker">Ticker</label>
-        <input id="ticker" name="ticker" type="text" placeholder="e.g. AAPL, MSFT, NVDA" required />
+        <label for="ticker">Tickers (comma-separated)</label>
+        <input id="ticker" name="ticker" type="text" placeholder="e.g. AAPL, MSFT, GOOGL, AMZN" required />
 
         <label for="twelvedata-key">Twelve Data API key</label>
         <input id="twelvedata-key" name="twelvedata-key" type="password" placeholder="Twelve Data key" required />
         <p class="field-hint">The free Twelve Data plan covers all US stocks and ETFs, limited to 8 requests/minute and 800/day. Get a free key at <a href="https://twelvedata.com/pricing" target="_blank" rel="noopener" tabindex="-1">twelvedata.com</a>.</p>
 
-        <label for="openrouter-key">OpenRouter API key</label>
-        <input id="openrouter-key" name="openrouter-key" type="password" placeholder="sk-or-..." required />
+        <label for="openrouter-key">OpenRouter API key (optional)</label>
+        <input id="openrouter-key" name="openrouter-key" type="password" placeholder="sk-or-..." />
 
-        <button type="submit">Analyze</button>
+        <button type="submit">Optimise Portfolio</button>
       </form>
     </section>
 
     <section class="panel" id="results">
-      <p class="placeholder">Results will appear here once you wire up data fetching and your LLM call.</p>
+      <div id="loading" class="loading">Loading data and calculating portfolio weights...</div>
+      <p class="placeholder">Enter comma-separated tickers and click "Optimise Portfolio" to see allocation recommendations.</p>
+      
+      <div class="portfolio-results">
+        <div class="chart-container">
+          <h3>Inverse Volatility Allocation</h3>
+          <canvas id="inverse-volatility-chart"></canvas>
+        </div>
+        
+        <div class="chart-container">
+          <h3>Sharpe Ratio Allocation</h3>
+          <canvas id="sharpe-ratio-chart"></canvas>
+        </div>
+        
+        <div class="correlation-container">
+          <h3>Correlation Matrix</h3>
+          <div id="correlation-matrix"></div>
+        </div>
+      </div>
     </section>
   </main>
 
   <footer class="app-footer">
-    <p>Replace this scaffold with your own build. See README.md for setup notes.</p>
+    <p>Portfolio Optimiser - Using Twelve Data API for market data</p>
   </footer>
 
   <script type="module" src="./main.js"></script>

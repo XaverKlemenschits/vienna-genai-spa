@@ -1,45 +1,157 @@
-// GenAI Finance course, starter scaffold.
-// This file intentionally does very little. Build on it during class.
-//
-// No API keys are stored in this file. Both the Twelve Data key and the
-// OpenRouter key are entered in the form fields at run time, so nothing secret
-// is ever committed to your public repo or shipped in the source.
+// Portfolio Optimiser - Multi-ticker analysis with inverse volatility and Sharpe ratio weighting
+import { Chart, PieController, ArcElement, Tooltip, Legend } from 'chart.js';
+
+// Register Chart.js components
+Chart.register(PieController, ArcElement, Tooltip, Legend);
 
 const form = document.getElementById('ticker-form');
 const results = document.getElementById('results');
+const loadingElement = document.getElementById('loading');
+
+// API key storage keys
+const TWELVE_DATA_KEY_STORAGE = 'twelveDataApiKey';
+const OPEN_ROUTER_KEY_STORAGE = 'openRouterApiKey';
+
+// Load saved API keys on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const twelveDataKey = localStorage.getItem(TWELVE_DATA_KEY_STORAGE);
+  const openRouterKey = localStorage.getItem(OPEN_ROUTER_KEY_STORAGE);
+  
+  if (twelveDataKey) {
+    document.getElementById('twelvedata-key').value = twelveDataKey;
+  }
+  if (openRouterKey) {
+    document.getElementById('openrouter-key').value = openRouterKey;
+  }
+});
+
+// Save API keys to localStorage when form inputs change
+form.addEventListener('input', (event) => {
+  if (event.target.id === 'twelvedata-key') {
+    localStorage.setItem(TWELVE_DATA_KEY_STORAGE, event.target.value.trim());
+  } else if (event.target.id === 'openrouter-key') {
+    localStorage.setItem(OPEN_ROUTER_KEY_STORAGE, event.target.value.trim());
+  }
+});
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
-  const ticker = document.getElementById('ticker').value.trim().toUpperCase();
+  const tickerInput = document.getElementById('ticker').value.trim();
   const twelveDataKey = document.getElementById('twelvedata-key').value.trim();
+  
+  // Save API keys to localStorage
+  if (twelveDataKey) {
+    localStorage.setItem(TWELVE_DATA_KEY_STORAGE, twelveDataKey);
+  }
+  
   const openRouterKey = document.getElementById('openrouter-key').value.trim();
+  if (openRouterKey) {
+    localStorage.setItem(OPEN_ROUTER_KEY_STORAGE, openRouterKey);
+  }
 
-  results.innerHTML = '<p>Loading...</p>';
+  // Validate ticker input
+  if (!tickerInput) {
+    results.innerHTML = '<p class="error">Please enter at least one ticker symbol.</p>';
+    return;
+  }
+
+  if (!twelveDataKey) {
+    results.innerHTML = '<p class="error">Please enter your Twelve Data API key.</p>';
+    return;
+  }
+
+  // Parse tickers (comma-separated, trim whitespace, uppercase)
+  const tickers = tickerInput.split(',')
+    .map(t => t.trim().toUpperCase())
+    .filter(t => t.length > 0);
+
+  if (tickers.length === 0) {
+    results.innerHTML = '<p class="error">Please enter valid ticker symbols.</p>';
+    return;
+  }
+
+  if (tickers.length > 10) {
+    results.innerHTML = '<p class="error">Please limit to 10 tickers or fewer.</p>';
+    return;
+  }
+
+  // Show loading state
+  results.innerHTML = '';
+  loadingElement.style.display = 'block';
+  document.querySelector('.placeholder')?.remove();
 
   try {
-    const priceData = await fetchPriceData(ticker, twelveDataKey);
-    const note = await getResearchNote(ticker, priceData, openRouterKey);
-    renderResults(ticker, priceData, note);
+    // Fetch price data for all tickers in parallel
+    const priceDataMap = await fetchMultipleTickersPriceData(tickers, twelveDataKey);
+    
+    // Calculate portfolio metrics
+    const portfolioData = calculatePortfolioMetrics(priceDataMap, tickers);
+    
+    // Calculate correlation matrix
+    const correlationMatrix = calculateCorrelationMatrix(priceDataMap, tickers);
+    
+    // Render results
+    renderResults(tickers, priceDataMap, portfolioData, correlationMatrix);
+    
   } catch (err) {
-    results.innerHTML = `<p class="error">Something went wrong: ${err.message}</p>`;
+    results.innerHTML = `<p class="error">Error: ${err.message}</p>`;
+    console.error('Portfolio optimisation error:', err);
+  } finally {
+    loadingElement.style.display = 'none';
   }
 });
 
-// Twelve Data daily price history.
-// This endpoint sends CORS headers, so it works directly from the browser.
-// The free plan covers all US equities and ETFs (no ticker whitelist).
-// Returns an array of daily bars sorted oldest to newest, each shaped as
-// { date, open, high, low, close, volume } with numeric values.
-// Replace or extend with moving average, MACD, RSI calculations from Day 1.
+/**
+ * Fetch price data for multiple tickers concurrently
+ * @param {string[]} tickers - Array of ticker symbols
+ * @param {string} apiKey - Twelve Data API key
+ * @returns {Promise<Object>} - Map of ticker to price data
+ */
+async function fetchMultipleTickersPriceData(tickers, apiKey) {
+  const promises = tickers.map(ticker => 
+    fetchPriceData(ticker, apiKey)
+      .then(data => ({ ticker, data, error: null }))
+      .catch(err => ({ ticker, data: null, error: err.message }))
+  );
+
+  const results = await Promise.all(promises);
+  
+  const priceDataMap = {};
+  const failedTickers = [];
+  
+  for (const result of results) {
+    if (result.error) {
+      console.warn(`Failed to fetch data for ${result.ticker}: ${result.error}`);
+      failedTickers.push(result.ticker);
+    } else {
+      priceDataMap[result.ticker] = result.data;
+    }
+  }
+  
+  if (failedTickers.length > 0) {
+    console.warn(`Failed to fetch data for: ${failedTickers.join(', ')}`);
+    // If all tickers failed, throw an error
+    if (Object.keys(priceDataMap).length === 0) {
+      throw new Error(`Failed to fetch data for all tickers: ${failedTickers.join(', ')}`);
+    }
+  }
+  
+  return priceDataMap;
+}
+
+/**
+ * Fetch price data for a single ticker from Twelve Data API
+ * @param {string} ticker - Ticker symbol
+ * @param {string} apiKey - Twelve Data API key
+ * @returns {Promise<Object>} - Price data for the ticker
+ */
 async function fetchPriceData(ticker, apiKey) {
-  // outputsize is the number of most-recent bars. ~63 trading days is about
-  // 3 months; 90 leaves a little headroom. Max allowed is 5000.
+  // outputsize is the number of most-recent bars. ~90 trading days is about 3-4 months
   const url = `https://api.twelvedata.com/time_series?symbol=${ticker}&interval=1day&outputsize=90&apikey=${apiKey}`;
   const response = await fetch(url);
 
-  // Read the body as text first, then parse it safely, so an unexpected
-  // non-JSON response gives a readable error instead of "Unexpected token".
+  // Read the body as text first, then parse it safely
   const body = await response.text();
   let raw;
   try {
@@ -70,81 +182,448 @@ async function fetchPriceData(ticker, apiKey) {
     .sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
-// OpenRouter call. The price data above is summarized and handed to the model
-// so the note reflects the actual numbers you fetched. Replace the model,
-// prompt, and system prompt with whatever you designed in the Prompt
-// Engineering session.
-async function getResearchNote(ticker, priceData, apiKey) {
-  const first = priceData[0];
-  const latest = priceData[priceData.length - 1];
-  const pctChange = ((latest.close - first.close) / first.close) * 100;
-
-  const summary =
-    `${ticker} daily closes from ${first.date} to ${latest.date}: ` +
-    `start $${first.close.toFixed(2)}, latest $${latest.close.toFixed(2)}, ` +
-    `change ${pctChange.toFixed(1)}% over ${priceData.length} trading days.`;
-
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'anthropic/claude-sonnet-5',
-      // Sonnet 5 is a reasoning model. If max_tokens is too small to also cover
-      // its reasoning tokens, the request is rejected with a 400 "Provider
-      // returned error". This note is short, so turn reasoning off and leave
-      // comfortable headroom for the reply.
-      max_tokens: 2000,
-      reasoning: { enabled: false },
-      messages: [
-        { role: 'system', content: 'You are a financial research assistant. Be concise and factual.' },
-        { role: 'user', content: `${summary}\n\nWrite a one paragraph research note for ${ticker} based on this recent price action.` }
-      ]
-    })
-  });
-  // Surface what OpenRouter actually said, so a failed call tells you the real
-  // reason (bad key, no credits, rate limit, provider error) instead of a
-  // generic message you cannot act on.
-  if (!response.ok) throw new Error(`OpenRouter call failed. ${await readOpenRouterError(response)}`);
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content ?? 'No response.';
-}
-
-// Pulls the useful part out of an OpenRouter error response: the HTTP status,
-// a plain-language hint for the common cases, and the message OpenRouter (or
-// the upstream provider) actually returned.
-async function readOpenRouterError(response) {
-  let message = '';
-  try {
-    const body = await response.json();
-    const err = body.error ?? body;
-    message = err.message || '';
-    // On a "Provider returned error", the provider's own message is under
-    // metadata rather than the top-level message field.
-    const provider = err.metadata?.provider_name;
-    const raw = err.metadata?.raw;
-    if (provider) message += ` [provider: ${provider}]`;
-    if (raw) message += ` ${typeof raw === 'string' ? raw : JSON.stringify(raw)}`;
-  } catch {
-    // Response body was not JSON; the status code below still says something.
+/**
+ * Calculate daily returns from price data
+ * @param {Object[]} priceData - Array of price data objects with close prices
+ * @returns {number[]} - Array of daily returns
+ */
+function calculateDailyReturns(priceData) {
+  if (!priceData || priceData.length < 2) return [];
+  
+  const returns = [];
+  for (let i = 1; i < priceData.length; i++) {
+    const dailyReturn = (priceData[i].close - priceData[i-1].close) / priceData[i-1].close;
+    returns.push(dailyReturn);
   }
-  const hint = {
-    401: 'Your API key looks invalid or missing',
-    402: 'This model is paid and your OpenRouter account is out of credits',
-    429: 'Rate limited, wait a moment and try again'
-  }[response.status];
-  return [`(HTTP ${response.status})`, hint, message].filter(Boolean).join(' ');
+  return returns;
 }
 
-function renderResults(ticker, priceData, note) {
-  // priceData is sorted oldest to newest, so the last bar is the most recent.
-  const latest = priceData[priceData.length - 1];
+/**
+ * Calculate mean of an array of numbers
+ * @param {number[]} values - Array of numbers
+ * @returns {number} - Mean value
+ */
+function mean(values) {
+  if (!values || values.length === 0) return 0;
+  const sum = values.reduce((acc, val) => acc + val, 0);
+  return sum / values.length;
+}
 
-  results.innerHTML = `
-    <h2>${ticker}</h2>
-    <p class="price">Latest close (${latest.date}): $${latest.close.toFixed(2)}</p>
-    <p class="note">${note}</p>
+/**
+ * Calculate standard deviation (volatility) of an array of numbers
+ * @param {number[]} values - Array of numbers
+ * @returns {number} - Standard deviation
+ */
+function standardDeviation(values) {
+  if (!values || values.length < 2) return 0;
+  
+  const avg = mean(values);
+  const squaredDiffs = values.map(val => Math.pow(val - avg, 2));
+  const variance = mean(squaredDiffs);
+  return Math.sqrt(variance);
+}
+
+/**
+ * Calculate covariance between two arrays of values
+ * @param {number[]} returnsA - Array of returns for asset A
+ * @param {number[]} returnsB - Array of returns for asset B
+ * @returns {number} - Covariance
+ */
+function covariance(returnsA, returnsB) {
+  if (!returnsA || !returnsB || returnsA.length === 0 || returnsB.length === 0) return 0;
+  
+  // Ensure both arrays have the same length
+  const minLength = Math.min(returnsA.length, returnsB.length);
+  const a = returnsA.slice(0, minLength);
+  const b = returnsB.slice(0, minLength);
+  
+  const meanA = mean(a);
+  const meanB = mean(b);
+  
+  let cov = 0;
+  for (let i = 0; i < minLength; i++) {
+    cov += (a[i] - meanA) * (b[i] - meanB);
+  }
+  
+  return cov / minLength;
+}
+
+/**
+ * Calculate Pearson correlation coefficient between two arrays
+ * @param {number[]} returnsA - Array of returns for asset A
+ * @param {number[]} returnsB - Array of returns for asset B
+ * @returns {number} - Correlation coefficient (-1 to +1)
+ */
+function pearsonCorrelation(returnsA, returnsB) {
+  if (!returnsA || !returnsB || returnsA.length < 2 || returnsB.length < 2) return 0;
+  
+  const minLength = Math.min(returnsA.length, returnsB.length);
+  const a = returnsA.slice(0, minLength);
+  const b = returnsB.slice(0, minLength);
+  
+  const stdDevA = standardDeviation(a);
+  const stdDevB = standardDeviation(b);
+  
+  if (stdDevA === 0 || stdDevB === 0) return 0;
+  
+  const cov = covariance(a, b);
+  return cov / (stdDevA * stdDevB);
+}
+
+/**
+ * Calculate portfolio metrics for all tickers
+ * @param {Object} priceDataMap - Map of ticker to price data
+ * @param {string[]} tickers - Array of ticker symbols
+ * @returns {Object} - Portfolio data with weights, volatility, Sharpe ratios
+ */
+function calculatePortfolioMetrics(priceDataMap, tickers) {
+  const results = {
+    tickers: [],
+    volatility: {},
+    meanReturns: {},
+    sharpeRatios: {},
+    inverseVolatilityWeights: {},
+    sharpeRatioWeights: {}
+  };
+
+  // Calculate metrics for each ticker
+  for (const ticker of tickers) {
+    const priceData = priceDataMap[ticker];
+    if (!priceData || priceData.length < 2) {
+      console.warn(`Insufficient data for ${ticker}, skipping...`);
+      continue;
+    }
+
+    const dailyReturns = calculateDailyReturns(priceData);
+    const vol = standardDeviation(dailyReturns);
+    const meanReturn = mean(dailyReturns);
+    
+    // Calculate Sharpe ratio (assuming risk-free rate = 0)
+    const sharpeRatio = vol > 0 ? meanReturn / vol : 0;
+    
+    results.tickers.push(ticker);
+    results.volatility[ticker] = vol;
+    results.meanReturns[ticker] = meanReturn;
+    results.sharpeRatios[ticker] = sharpeRatio;
+  }
+
+  // Calculate inverse volatility weights (normalize to sum to 1)
+  const inverseVolWeights = {};
+  let sumInverseVol = 0;
+  
+  for (const ticker of results.tickers) {
+    const vol = results.volatility[ticker];
+    // Handle zero volatility by adding a small epsilon
+    const safeVol = Math.max(vol, 0.0001);
+    inverseVolWeights[ticker] = 1 / safeVol;
+    sumInverseVol += inverseVolWeights[ticker];
+  }
+  
+  for (const ticker of results.tickers) {
+    results.inverseVolatilityWeights[ticker] = sumInverseVol > 0 ? 
+      inverseVolWeights[ticker] / sumInverseVol : 0;
+  }
+
+  // Calculate Sharpe ratio weights (normalize to sum to 1)
+  const sharpeWeights = {};
+  let sumSharpe = 0;
+  
+  for (const ticker of results.tickers) {
+    const sharpe = results.sharpeRatios[ticker];
+    // Use absolute value or max(0, sharpe) to avoid negative weights
+    sharpeWeights[ticker] = Math.max(0, sharpe);
+    sumSharpe += sharpeWeights[ticker];
+  }
+  
+  for (const ticker of results.tickers) {
+    results.sharpeRatioWeights[ticker] = sumSharpe > 0 ? 
+      sharpeWeights[ticker] / sumSharpe : 0;
+  }
+
+  return results;
+}
+
+/**
+ * Calculate correlation matrix for all ticker pairs
+ * @param {Object} priceDataMap - Map of ticker to price data
+ * @param {string[]} tickers - Array of ticker symbols
+ * @returns {Object} - Correlation matrix
+ */
+function calculateCorrelationMatrix(priceDataMap, tickers) {
+  const matrix = {};
+  const returnsMap = {};
+  
+  // Calculate daily returns for each ticker
+  for (const ticker of tickers) {
+    const priceData = priceDataMap[ticker];
+    if (priceData && priceData.length >= 2) {
+      returnsMap[ticker] = calculateDailyReturns(priceData);
+    } else {
+      returnsMap[ticker] = [];
+    }
+  }
+
+  // Calculate correlation for each pair
+  for (const tickerA of tickers) {
+    matrix[tickerA] = {};
+    for (const tickerB of tickers) {
+      const returnsA = returnsMap[tickerA];
+      const returnsB = returnsMap[tickerB];
+      
+      const corr = pearsonCorrelation(returnsA, returnsB);
+      // Clamp to [-1, 1] range due to floating point precision
+      matrix[tickerA][tickerB] = Math.max(-1, Math.min(1, corr));
+    }
+  }
+
+  return matrix;
+}
+
+/**
+ * Render portfolio results including charts and correlation matrix
+ * @param {string[]} tickers - Array of ticker symbols
+ * @param {Object} priceDataMap - Map of ticker to price data
+ * @param {Object} portfolioData - Portfolio metrics
+ * @param {Object} correlationMatrix - Correlation matrix
+ */
+function renderResults(tickers, priceDataMap, portfolioData, correlationMatrix) {
+  // Filter out tickers with no data
+  const validTickers = portfolioData.tickers;
+  
+  if (validTickers.length === 0) {
+    results.innerHTML = '<p class="error">No valid ticker data available for analysis.</p>';
+    return;
+  }
+
+  // Create chart data for inverse volatility
+  const inverseVolData = {
+    labels: validTickers,
+    datasets: [{
+      data: validTickers.map(t => portfolioData.inverseVolatilityWeights[t]),
+      backgroundColor: generateColors(validTickers.length),
+      borderWidth: 1
+    }]
+  };
+
+  // Create chart data for Sharpe ratio
+  const sharpeData = {
+    labels: validTickers,
+    datasets: [{
+      data: validTickers.map(t => portfolioData.sharpeRatioWeights[t]),
+      backgroundColor: generateColors(validTickers.length),
+      borderWidth: 1
+    }]
+  };
+
+  // Destroy existing charts if they exist
+  const existingCharts = Chart.instances;
+  Object.keys(existingCharts).forEach(key => {
+    existingCharts[key].destroy();
+  });
+
+  // Create new charts
+  const inverseVolCtx = document.getElementById('inverse-volatility-chart');
+  const sharpeCtx = document.getElementById('sharpe-ratio-chart');
+
+  if (inverseVolCtx && sharpeCtx) {
+    new Chart(inverseVolCtx, {
+      type: 'pie',
+      data: inverseVolData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#d4d4d4',
+              padding: 10,
+              font: {
+                size: 11,
+                family: 'Segoe UI, Roboto, sans-serif'
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.raw || 0;
+                return `${label}: ${(value * 100).toFixed(2)}%`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateScale: true,
+          animateRotate: true
+        }
+      }
+    });
+
+    new Chart(sharpeCtx, {
+      type: 'pie',
+      data: sharpeData,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#d4d4d4',
+              padding: 10,
+              font: {
+                size: 11,
+                family: 'Segoe UI, Roboto, sans-serif'
+              }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const label = context.label || '';
+                const value = context.raw || 0;
+                return `${label}: ${(value * 100).toFixed(2)}%`;
+              }
+            }
+          }
+        },
+        animation: {
+          animateScale: true,
+          animateRotate: true
+        }
+      }
+    });
+  }
+
+  // Render correlation matrix
+  const correlationHtml = renderCorrelationMatrix(correlationMatrix, validTickers);
+
+  // Build results HTML
+  let html = '<div class="portfolio-summary">';
+  html += '<h3>Portfolio Summary</h3>';
+  html += `<p><strong>Tickers Analyzed:</strong> ${validTickers.join(', ')}</p>`;
+  
+  if (validTickers.length < tickers.length) {
+    const failed = tickers.filter(t => !validTickers.includes(t));
+    html += `<p class="error">Could not retrieve data for: ${failed.join(', ')}</p>`;
+  }
+  html += '</div>';
+  
+  // Add latest prices
+  html += '<div class="latest-prices">';
+  html += '<h3>Latest Prices & Metrics</h3>';
+  html += '<table class="prices-table">';
+  html += '<thead><tr><th>Ticker</th><th>Latest Close</th><th>Volatility</th><th>Mean Return</th><th>Sharpe Ratio</th></tr></thead>';
+  html += '<tbody>';
+  
+  for (const ticker of validTickers) {
+    const priceData = priceDataMap[ticker];
+    const latestPrice = priceData && priceData.length > 0 ? 
+      priceData[priceData.length - 1].close.toFixed(2) : 'N/A';
+    const vol = (portfolioData.volatility[ticker] * 100).toFixed(4);
+    const meanRet = (portfolioData.meanReturns[ticker] * 100).toFixed(4);
+    const sharpe = portfolioData.sharpeRatios[ticker].toFixed(4);
+    
+    html += `<tr>
+      <td><strong>${ticker}</strong></td>
+      <td>$${latestPrice}</td>
+      <td>${vol}%</td>
+      <td>${meanRet}%</td>
+      <td>${sharpe}</td>
+    </tr>`;
+  }
+  
+  html += '</tbody></table>';
+  html += '</div>';
+
+  // Build the final results content
+  const finalHtml = `
+    <div class="portfolio-results">
+      <div class="chart-container">
+        <h3>Inverse Volatility Allocation</h3>
+        <canvas id="inverse-volatility-chart"></canvas>
+      </div>
+      
+      <div class="chart-container">
+        <h3>Sharpe Ratio Allocation</h3>
+        <canvas id="sharpe-ratio-chart"></canvas>
+      </div>
+      
+      <div class="correlation-container">
+        <h3>Correlation Matrix</h3>
+        <div id="correlation-matrix">${correlationHtml}</div>
+      </div>
+      
+      ${html}
+    </div>
   `;
+
+  results.innerHTML = finalHtml;
+}
+
+/**
+ * Render correlation matrix as an HTML table with heatmap coloring
+ * @param {Object} matrix - Correlation matrix
+ * @param {string[]} tickers - Array of ticker symbols
+ * @returns {string} - HTML string for correlation matrix
+ */
+function renderCorrelationMatrix(matrix, tickers) {
+  let html = '<table class="correlation-table">';
+  html += '<thead><tr><th></th>';
+  
+  for (const ticker of tickers) {
+    html += `<th>${ticker}</th>`;
+  }
+  
+  html += '</tr></thead><tbody>';
+  
+  for (const tickerA of tickers) {
+    html += `<tr><th>${tickerA}</th>`;
+    
+    for (const tickerB of tickers) {
+      const corr = matrix[tickerA]?.[tickerB] ?? 0;
+      const formattedCorr = corr.toFixed(2);
+      const colorClass = getCorrelationColorClass(corr);
+      
+      html += `<td class="corr-cell ${colorClass}" title="${formattedCorr}">${formattedCorr}</td>`;
+    }
+    
+    html += '</tr>';
+  }
+  
+  html += '</tbody></table>';
+  return html;
+}
+
+/**
+ * Get CSS class for correlation value based on heatmap coloring
+ * @param {number} correlation - Correlation value (-1 to 1)
+ * @returns {string} - CSS class name
+ */
+function getCorrelationColorClass(correlation) {
+  if (correlation >= 0.7) return 'corr-very-high';
+  if (correlation >= 0.3) return 'corr-high';
+  if (correlation >= -0.3) return 'corr-medium';
+  if (correlation >= -0.7) return 'corr-low';
+  return 'corr-very-low';
+}
+
+/**
+ * Generate an array of colors for chart segments
+ * @param {number} count - Number of colors needed
+ * @returns {string[]} - Array of color strings
+ */
+function generateColors(count) {
+  const colors = [
+    '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+    '#FF9F40', '#8AC24A', '#607D8B', '#E91E63', '#FFC107'
+  ];
+  
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(colors[i % colors.length]);
+  }
+  return result;
 }
