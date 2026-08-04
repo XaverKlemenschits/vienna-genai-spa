@@ -208,6 +208,17 @@ button:focus {
   font-family: 'Consolas', 'Courier New', monospace;
 }
 
+.summary-explanation {
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--vscode-text-secondary);
+  line-height: 1.5;
+  padding: 0.75rem;
+  background: var(--vscode-input-bg);
+  border-radius: 3px;
+  border-left: 3px solid var(--vscode-accent);
+}
+
 /* Allocation Chart */
 .allocation-chart {
   margin-bottom: 1.5rem;
@@ -326,6 +337,233 @@ button:focus {
   color: var(--vscode-text);
 }
 
+/* Correlation Analysis Styling */
+.correlation-analysis {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1.25rem;
+  background: var(--vscode-panel-bg);
+}
+
+.correlation-analysis h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--vscode-text);
+  border-bottom: 1px solid var(--vscode-border);
+  padding-bottom: 0.5rem;
+}
+
+.analysis-description {
+  margin: 0 0 1.5rem;
+  font-size: 0.85rem;
+  color: var(--vscode-text-secondary);
+  line-height: 1.5;
+}
+
+.correlation-matrix {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.matrix-table th {
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vscode-text);
+  background: var(--vscode-input-bg);
+  border: 1px solid var(--vscode-border);
+  white-space: nowrap;
+}
+
+.matrix-table th:first-child {
+  text-align: right;
+  background: var(--vscode-panel-bg);
+}
+
+.matrix-table td {
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  border: 1px solid var(--vscode-border);
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.matrix-table td:hover {
+  transform: scale(1.1);
+  z-index: 1;
+  box-shadow: 0 0 8px rgba(0, 122, 204, 0.3);
+}
+
+.matrix-table td:first-child {
+  text-align: right;
+  font-weight: 600;
+  background: var(--vscode-panel-bg);
+  color: var(--vscode-text);
+}
+
+/* Diagonal elements (self-correlation = 1.0) */
+.matrix-table td.diagonal {
+  background: var(--vscode-input-bg) !important;
+  color: var(--vscode-text-secondary) !important;
+  font-style: italic !important;
+  font-weight: normal !important;
+}
+
+/* Correlation value color classes */
+.matrix-table td.high-positive {
+  background: rgba(0, 200, 83, 0.2);
+  color: #00c853;
+  font-weight: 600;
+}
+
+.matrix-table td.medium-positive {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.matrix-table td.low-positive {
+  background: rgba(129, 199, 132, 0.15);
+  color: #81c784;
+}
+
+.matrix-table td.low-negative {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffc107;
+}
+
+.matrix-table td.medium-negative {
+  background: rgba(255, 152, 0, 0.2);
+  color: #ff9800;
+}
+
+.matrix-table td.high-negative {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  font-weight: 600;
+}
+
+/* Diagonal elements (self-correlation = 1) */
+.matrix-table tr td:nth-child(1) {
+  text-align: right;
+  font-weight: 600;
+  background: var(--vscode-input-bg);
+}
+
+.correlation-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  font-size: 0.75rem;
+  color: var(--vscode-text-secondary);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--vscode-border);
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legend-item::before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  border-radius: 2px;
+  border: 1px solid var(--vscode-border);
+}
+
+.legend-item.high-positive::before { background: rgba(0, 200, 83, 0.4); }
+.legend-item.medium-positive::before { background: rgba(76, 175, 80, 0.4); }
+.legend-item.low-positive::before { background: rgba(129, 199, 132, 0.3); }
+.legend-item.low-negative::before { background: rgba(255, 193, 7, 0.3); }
+.legend-item.medium-negative::before { background: rgba(255, 152, 0, 0.4); }
+.legend-item.high-negative::before { background: rgba(244, 67, 54, 0.4); }
+
+/* Diversification Insights Styling */
+.diversification-insights {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--vscode-border);
+}
+
+.diversification-insights h4 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vscode-text);
+}
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.insight-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.insight-label {
+  font-size: 0.75rem;
+  color: var(--vscode-text-secondary);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.insight-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vscode-accent);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.diversifying-pairs {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  background: var(--vscode-input-bg);
+  border-radius: 3px;
+  border-left: 3px solid #4caf50;
+}
+
+.diversifying-pairs h5 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.diversifying-pairs ul {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.8rem;
+  color: var(--vscode-text);
+}
+
+.diversifying-pairs li {
+  margin-bottom: 0.25rem;
+}
+
+.insight-explanation {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--vscode-text-secondary);
+  line-height: 1.4;
+  font-style: italic;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .summary-grid {
@@ -343,5 +581,19 @@ button:focus {
   
   .allocation-percent {
     font-size: 0.8rem;
+  }
+  
+  .matrix-table {
+    font-size: 0.75rem;
+  }
+  
+  .matrix-table th,
+  .matrix-table td {
+    padding: 0.25rem;
+  }
+  
+  .correlation-legend {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

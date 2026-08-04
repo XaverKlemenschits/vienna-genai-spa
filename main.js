@@ -63,7 +63,7 @@ form.addEventListener('submit', async (event) => {
     const returnsData = calculateDailyReturns(alignedData);
     
     // Calculate mean returns and covariance matrix
-    const { meanReturns, covMatrix } = calculatePortfolioStatistics(returnsData);
+    const { meanReturns, covMatrix, corrMatrix } = calculatePortfolioStatistics(returnsData);
     
     // Optimize portfolio to maximize Sharpe ratio
     const riskFreeRateDaily = riskFreeRate / 100 / TRADING_DAYS_PER_YEAR;
@@ -87,7 +87,7 @@ form.addEventListener('submit', async (event) => {
     }
     
     // Render results
-    renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate);
+    renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix);
     
   } catch (err) {
     results.innerHTML = `<p class="error">Something went wrong: ${err.message}</p>`;
@@ -295,7 +295,43 @@ function calculatePortfolioStatistics(returnsData) {
     covMatrix.push(row);
   }
   
-  return { meanReturns, covMatrix };
+  // Calculate correlation matrix from covariance matrix
+  const corrMatrix = calculateCorrelationMatrix(covMatrix, returnsData);
+  
+  return { meanReturns, covMatrix, corrMatrix };
+}
+
+/**
+ * Calculate correlation matrix from covariance matrix
+ * Correlation(i,j) = Covariance(i,j) / (stdDev(i) * stdDev(j))
+ */
+function calculateCorrelationMatrix(covMatrix, returnsData) {
+  const nAssets = covMatrix.length;
+  const corrMatrix = [];
+  
+  // Pre-calculate standard deviations (square root of diagonal elements)
+  const stdDevs = [];
+  for (let i = 0; i < nAssets; i++) {
+    stdDevs.push(Math.sqrt(covMatrix[i][i]));
+  }
+  
+  // Calculate correlation matrix
+  for (let i = 0; i < nAssets; i++) {
+    const row = [];
+    for (let j = 0; j < nAssets; j++) {
+      if (i === j) {
+        // Correlation of asset with itself is 1
+        row.push(1);
+      } else {
+        // Correlation = covariance / (stdDev_i * stdDev_j)
+        const correlation = covMatrix[i][j] / (stdDevs[i] * stdDevs[j]);
+        row.push(correlation);
+      }
+    }
+    corrMatrix.push(row);
+  }
+  
+  return corrMatrix;
 }
 
 /**
@@ -744,7 +780,7 @@ async function readOpenRouterError(response) {
 // RESULTS RENDERING
 // ============================================================================
 
-function renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate) {
+function renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix) {
   const {
     weights,
     annualReturn,
@@ -771,6 +807,11 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
       
       <div class="portfolio-summary">
         <h3>Portfolio Summary</h3>
+        <p class="summary-explanation">
+          This portfolio is optimized to maximize the Sharpe Ratio, which balances return against risk. 
+          The optimizer automatically reduces allocation to highly correlated assets to minimize portfolio volatility 
+          while maintaining strong expected returns.
+        </p>
         <div class="summary-grid">
           <div class="summary-item">
             <span class="summary-label">Number of Assets:</span>
@@ -871,6 +912,63 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
     `;
   }
   
+  // Add correlation matrix section
+  if (corrMatrix && corrMatrix.length > 0) {
+    html += `
+      <div class="correlation-analysis">
+        <h3>Correlation Matrix</h3>
+        <p class="analysis-description">
+          This matrix shows how each asset moves in relation to others. Values range from -1 (perfect negative correlation) to +1 (perfect positive correlation). 
+          <strong>The optimizer reduces risk by allocating less to highly correlated assets</strong> — this is the essence of diversification. 
+          Assets with low or negative correlation provide the best risk reduction benefits when combined in a portfolio.
+        </p>
+        <div class="correlation-matrix">
+          <table class="matrix-table">
+            <thead>
+              <tr>
+                <th></th>
+                ${tickers.map(ticker => `<th>${ticker}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+  `;
+    
+    for (let i = 0; i < tickers.length; i++) {
+      html += `
+              <tr>
+                <th>${tickers[i]}</th>
+      `;
+      for (let j = 0; j < tickers.length; j++) {
+        const correlation = corrMatrix[i][j];
+        const isDiagonal = i === j;
+        const correlationClass = isDiagonal ? 'diagonal' : getCorrelationClass(correlation);
+        const title = isDiagonal ? 'Self-correlation (always 1.000)' : formatCorrelationDescription(correlation);
+        html += `
+                <td class="${correlationClass}" title="${title}">${correlation.toFixed(3)}</td>
+        `;
+      }
+      html += `
+              </tr>
+      `;
+    }
+    
+    html += `
+            </tbody>
+          </table>
+        </div>
+        <div class="correlation-legend">
+          <span class="legend-item high-positive"></span> High Positive Correlation (>0.7) - Similar movement
+          <span class="legend-item medium-positive"></span> Medium Positive (0.3-0.7)
+          <span class="legend-item low-positive"></span> Low Positive (0-0.3)
+          <span class="legend-item low-negative"></span> Low Negative (-0.3-0)
+          <span class="legend-item medium-negative"></span> Medium Negative (-0.7--0.3)
+          <span class="legend-item high-negative"></span> High Negative (<-0.7) - Opposite movement
+        </div>
+        ${getDiversificationInsights(corrMatrix, weights, tickers)}
+      </div>
+    `;
+  }
+  
   // Add data statistics
   html += `
       <div class="data-statistics">
@@ -922,4 +1020,151 @@ function formatCurrency(value) {
   return value !== undefined && value !== null && !isNaN(value) 
     ? `$${value.toFixed(2)}` 
     : 'N/A';
+}
+
+/**
+ * Get CSS class for correlation value based on strength and direction
+ */
+function getCorrelationClass(correlation) {
+  if (correlation >= 0.7) return 'high-positive';
+  if (correlation >= 0.3) return 'medium-positive';
+  if (correlation >= 0) return 'low-positive';
+  if (correlation >= -0.3) return 'low-negative';
+  if (correlation >= -0.7) return 'medium-negative';
+  return 'high-negative';
+}
+
+/**
+ * Format correlation description for tooltip
+ */
+function formatCorrelationDescription(correlation) {
+  if (correlation >= 0.9) return 'Very Strong Positive Correlation';
+  if (correlation >= 0.7) return 'Strong Positive Correlation';
+  if (correlation >= 0.5) return 'Moderate Positive Correlation';
+  if (correlation >= 0.3) return 'Weak Positive Correlation';
+  if (correlation >= 0.1) return 'Very Weak Positive Correlation';
+  if (correlation > -0.1) return 'Neutral Correlation';
+  if (correlation > -0.3) return 'Very Weak Negative Correlation';
+  if (correlation > -0.5) return 'Weak Negative Correlation';
+  if (correlation > -0.7) return 'Moderate Negative Correlation';
+  if (correlation > -0.9) return 'Strong Negative Correlation';
+  return 'Very Strong Negative Correlation';
+}
+
+/**
+ * Generate diversification insights based on correlation matrix and weights
+ */
+function getDiversificationInsights(corrMatrix, weights, tickers) {
+  if (!corrMatrix || corrMatrix.length <= 1) return '';
+  
+  const insights = [];
+  
+  // Calculate portfolio diversification score
+  const n = corrMatrix.length;
+  let totalPairs = 0;
+  let highCorrelationPairs = 0;
+  let lowCorrelationPairs = 0;
+  let negativeCorrelationPairs = 0;
+  
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const corr = corrMatrix[i][j];
+      totalPairs++;
+      
+      if (corr >= 0.7) highCorrelationPairs++;
+      else if (corr <= 0.3) lowCorrelationPairs++;
+      if (corr < 0) negativeCorrelationPairs++;
+    }
+  }
+  
+  const highCorrPct = totalPairs > 0 ? ((highCorrelationPairs / totalPairs) * 100).toFixed(1) : 0;
+  const lowCorrPct = totalPairs > 0 ? ((lowCorrelationPairs / totalPairs) * 100).toFixed(1) : 0;
+  const negativeCorrPct = totalPairs > 0 ? ((negativeCorrelationPairs / totalPairs) * 100).toFixed(1) : 0;
+  
+  // Find the most diversifying pairs (lowest correlation with highest weights)
+  const diversifyingPairs = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const corr = corrMatrix[i][j];
+      const weightProduct = weights[i] * weights[j];
+      if (corr < 0.3 && weightProduct > 0.01) {
+        diversifyingPairs.push({
+          pair: `${tickers[i]}-${tickers[j]}`,
+          correlation: corr,
+          combinedWeight: weightProduct
+        });
+      }
+    }
+  }
+  
+  // Sort by correlation (lowest first for most diversifying)
+  diversifyingPairs.sort((a, b) => a.correlation - b.correlation);
+  
+  // Generate insights HTML
+  let html = `
+        <div class="diversification-insights">
+          <h4>Portfolio Diversification Analysis</h4>
+          <div class="insights-grid">
+            <div class="insight-item">
+              <span class="insight-label">Diversification Quality:</span>
+              <span class="insight-value">${getDiversificationGrade(highCorrPct, negativeCorrPct)}</span>
+            </div>
+            <div class="insight-item">
+              <span class="insight-label">High Correlation Pairs:</span>
+              <span class="insight-value">${highCorrelationPairs} (${highCorrPct}%)</span>
+            </div>
+            <div class="insight-item">
+              <span class="insight-label">Low Correlation Pairs:</span>
+              <span class="insight-value">${lowCorrelationPairs} (${lowCorrPct}%)</span>
+            </div>
+            <div class="insight-item">
+              <span class="insight-label">Negative Correlation Pairs:</span>
+              <span class="insight-value">${negativeCorrelationPairs} (${negativeCorrPct}%)</span>
+            </div>
+          </div>
+  `;
+  
+  if (diversifyingPairs.length > 0) {
+    html += `
+          <div class="diversifying-pairs">
+            <h5>Most Diversifying Allocations:</h5>
+            <ul>
+    `;
+    for (let i = 0; i < Math.min(diversifyingPairs.length, 3); i++) {
+      const pair = diversifyingPairs[i];
+      const weightPct = (pair.combinedWeight * 100).toFixed(1);
+      html += `
+              <li><strong>${pair.pair}</strong>: Correlation ${pair.correlation.toFixed(3)} (Combined weight: ${weightPct}%)</li>
+      `;
+    }
+    html += `
+            </ul>
+          </div>
+    `;
+  }
+  
+  html += `
+          <p class="insight-explanation">
+            <strong>How correlation affects your portfolio:</strong> High correlation between assets provides limited diversification benefits. 
+            The optimizer naturally favors combinations where assets move independently or in opposite directions, 
+            which reduces overall portfolio volatility without sacrificing expected returns.
+          </p>
+        </div>
+  `;
+  
+  return html;
+}
+
+/**
+ * Get diversification grade based on correlation analysis
+ */
+function getDiversificationGrade(highCorrPct, negativeCorrPct) {
+  const highCorr = parseFloat(highCorrPct);
+  const negCorr = parseFloat(negativeCorrPct);
+  
+  if (negCorr >= 20 && highCorr <= 30) return '🌟 Excellent - Well diversified';
+  if (negCorr >= 10 && highCorr <= 50) return '✅ Good - Reasonably diversified';
+  if (negCorr >= 5 && highCorr <= 70) return '⚠️ Fair - Some diversification';
+  if (highCorr > 70) return '❌ Poor - Highly correlated assets';
+  return '📊 Moderate - Average diversification';
 }
