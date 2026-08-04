@@ -514,6 +514,39 @@ function renderResults(tickers, priceDataMap, portfolioData, correlationMatrix) 
   }
   html += '</div>';
   
+  // Add allocation tables
+  html += '<div class="allocation-tables">';
+  html += '<h3>Portfolio Allocation Percentages</h3>';
+  
+  // Inverse Volatility Allocation table
+  html += '<div class="allocation-table">';
+  html += '<h4>Inverse Volatility Weights</h4>';
+  html += '<table class="prices-table">';
+  html += '<thead><tr><th>Ticker</th><th>Allocation %</th></tr></thead><tbody>';
+  
+  for (const ticker of validTickers) {
+    const weight = (portfolioData.inverseVolatilityWeights[ticker] * 100).toFixed(2);
+    html += `<tr><td><strong>${ticker}</strong></td><td>${weight}%</td></tr>`;
+  }
+  
+  html += '</tbody></table>';
+  html += '</div>';
+  
+  // Sharpe Ratio Allocation table
+  html += '<div class="allocation-table">';
+  html += '<h4>Sharpe Ratio Weights</h4>';
+  html += '<table class="prices-table">';
+  html += '<thead><tr><th>Ticker</th><th>Allocation %</th></tr></thead><tbody>';
+  
+  for (const ticker of validTickers) {
+    const weight = (portfolioData.sharpeRatioWeights[ticker] * 100).toFixed(2);
+    html += `<tr><td><strong>${ticker}</strong></td><td>${weight}%</td></tr>`;
+  }
+  
+  html += '</tbody></table>';
+  html += '</div>';
+  html += '</div>';
+
   // Add latest prices
   html += '<div class="latest-prices">';
   html += '<h3>Latest Prices & Metrics</h3>';

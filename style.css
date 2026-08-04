@@ -334,6 +334,35 @@ button:focus {
   font-family: 'Segoe UI', 'Roboto', sans-serif;
 }
 
+/* Allocation tables container */
+.allocation-tables {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1rem;
+  background: var(--vscode-panel-bg);
+  grid-column: span 2;
+}
+
+.allocation-tables h3 {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--vscode-text);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
+.allocation-table {
+  margin-bottom: 1rem;
+}
+
+.allocation-table h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--vscode-text-secondary);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+  font-weight: 600;
+}
+
 /* Latest prices container */
 .latest-prices {
   border: 1px solid var(--vscode-border);
@@ -359,7 +388,8 @@ button:focus {
   
   .correlation-container,
   .portfolio-summary,
-  .latest-prices {
+  .latest-prices,
+  .allocation-tables {
     grid-column: span 1;
   }
   
