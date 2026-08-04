@@ -39,7 +39,13 @@ You need API keys from two services:
    - Default: 2% (typical US Treasury bill rate)
    - Adjust based on current market conditions
 
-3. **Enter Twelve Data API Key**: Required for fetching price data
+3. **Set Analysis Period**: Choose the historical time period for optimization
+   - Range: 1-24 months
+   - Default: 6 months
+   - **Shorter periods** (1-3 months): More responsive to recent market conditions, but may be noisy
+   - **Longer periods** (12-24 months): More stable correlations and statistics, but may miss recent trends
+
+4. **Enter Twelve Data API Key**: Required for fetching price data
 
 4. **Enter OpenRouter API Key** (Optional): For AI research notes
 
@@ -55,10 +61,10 @@ You need API keys from two services:
 
 ### Data Processing Pipeline
 
-1. **Fetch Price Data**: Retrieves 200 days of historical closing prices for each ticker
+1. **Fetch Price Data**: Retrieves historical closing prices for each ticker based on the selected analysis period (1-24 months)
 2. **Align Data**: Finds common dates across all tickers and aligns price series
 3. **Calculate Returns**: Converts prices to daily percentage returns
-4. **Compute Statistics**: Calculates mean returns and covariance matrix
+4. **Compute Statistics**: Calculates mean returns and covariance matrix using the selected time period
 5. **Optimize Portfolio**: Finds weights that maximize Sharpe Ratio
 6. **Annualize Results**: Converts daily metrics to annual figures
 

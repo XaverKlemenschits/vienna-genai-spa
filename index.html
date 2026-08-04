@@ -23,6 +23,10 @@
         <input id="risk-free-rate" name="risk-free-rate" type="number" step="0.1" min="0" max="20" value="2" />
         <p class="field-hint">Annual risk-free rate for Sharpe ratio calculation (default: 2%).</p>
 
+        <label for="analysis-period">Analysis Period (months)</label>
+        <input id="analysis-period" name="analysis-period" type="number" step="1" min="1" max="24" value="6" />
+        <p class="field-hint">Number of months of historical data to use for optimization (1-24 months). Longer periods provide more stable results but may miss recent trends.</p>
+
         <label for="twelvedata-key">Twelve Data API key</label>
         <input id="twelvedata-key" name="twelvedata-key" type="password" placeholder="Twelve Data key" required />
         <p class="field-hint">The free Twelve Data plan covers all US stocks and ETFs, limited to 8 requests/minute and 800/day. Get a free key at <a href="https://twelvedata.com/pricing" target="_blank" rel="noopener" tabindex="-1">twelvedata.com</a>.</p>

@@ -21,6 +21,7 @@ form.addEventListener('submit', async (event) => {
   const twelveDataKey = document.getElementById('twelvedata-key').value.trim();
   const openRouterKey = document.getElementById('openrouter-key').value.trim();
   const riskFreeRate = parseFloat(document.getElementById('risk-free-rate').value) || 2; // Default 2%
+  const analysisMonths = parseInt(document.getElementById('analysis-period').value) || 6; // Default 6 months
 
   // Parse comma-separated tickers
   const tickers = tickersInput.split(',')
@@ -30,6 +31,11 @@ form.addEventListener('submit', async (event) => {
   // Validate inputs
   if (tickers.length === 0) {
     results.innerHTML = '<p class="error">Please enter at least one ticker symbol.</p>';
+    return;
+  }
+
+  if (analysisMonths < 1 || analysisMonths > 24) {
+    results.innerHTML = '<p class="error">Analysis period must be between 1 and 24 months.</p>';
     return;
   }
 
@@ -43,16 +49,16 @@ form.addEventListener('submit', async (event) => {
     return;
   }
 
-  results.innerHTML = '<p>Fetching price data for all tickers... This may take a few moments.</p>';
+  results.innerHTML = `<p>Fetching ${analysisMonths} ${analysisMonths === 1 ? 'month' : 'months'} of price data for all tickers... This may take a few moments.</p>`;
 
   try {
     // Fetch price data for all tickers concurrently
-    const allPriceData = await fetchAllPriceData(tickers, twelveDataKey);
+    const allPriceData = await fetchAllPriceData(tickers, twelveDataKey, analysisMonths);
     
     // Check if we have enough data points
     const minDataPoints = Math.min(...allPriceData.map(data => data.data.length));
     if (minDataPoints < 10) {
-      results.innerHTML = '<p class="error">Insufficient price data. Need at least 10 data points for meaningful optimization.</p>';
+      results.innerHTML = `<p class="error">Insufficient price data for ${analysisMonths} ${analysisMonths === 1 ? 'month' : 'months'} analysis. Need at least 10 data points for meaningful optimization. Try a longer analysis period or different tickers.</p>`;
       return;
     }
 
@@ -87,7 +93,7 @@ form.addEventListener('submit', async (event) => {
     }
     
     // Render results
-    renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix);
+    renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix, analysisMonths);
     
   } catch (err) {
     results.innerHTML = `<p class="error">Something went wrong: ${err.message}</p>`;
@@ -102,7 +108,7 @@ form.addEventListener('submit', async (event) => {
 /**
  * Fetch price data for all tickers concurrently with batch processing
  */
-async function fetchAllPriceData(tickers, apiKey) {
+async function fetchAllPriceData(tickers, apiKey, analysisMonths = 6) {
   // Process in batches to avoid rate limiting
   const batchSize = 4; // Safe batch size for Twelve Data free plan
   const allData = [];
@@ -110,7 +116,7 @@ async function fetchAllPriceData(tickers, apiKey) {
   for (let i = 0; i < tickers.length; i += batchSize) {
     const batch = tickers.slice(i, i + batchSize);
     const batchPromises = batch.map(ticker => 
-      fetchPriceData(ticker, apiKey)
+      fetchPriceData(ticker, apiKey, analysisMonths)
         .then(priceData => ({ ticker, data: priceData }))
     );
     
@@ -127,9 +133,13 @@ async function fetchAllPriceData(tickers, apiKey) {
 }
 
 // Twelve Data daily price history.
-async function fetchPriceData(ticker, apiKey) {
-  // Use a larger outputsize to get more historical data for better optimization
-  const url = `https://api.twelvedata.com/time_series?symbol=${ticker}&interval=1day&outputsize=200&apikey=${apiKey}`;
+async function fetchPriceData(ticker, apiKey, analysisMonths = 6) {
+  // Calculate outputsize based on analysis period
+  // 1 month ≈ 21 trading days, so analysisMonths * 21 ≈ desired data points
+  // Add some buffer to ensure we have enough data after alignment
+  const outputsize = Math.min(analysisMonths * 25, 500); // Max 500 for safety, 25 days/month average
+  
+  const url = `https://api.twelvedata.com/time_series?symbol=${ticker}&interval=1day&outputsize=${outputsize}&apikey=${apiKey}`;
   const response = await fetch(url);
 
   const body = await response.text();
@@ -780,7 +790,7 @@ async function readOpenRouterError(response) {
 // RESULTS RENDERING
 // ============================================================================
 
-function renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix) {
+function renderResults(tickers, allPriceData, alignedData, returnsData, optimization, notes, riskFreeRate, corrMatrix, meanReturns, covMatrix, analysisMonths = 6) {
   const {
     weights,
     annualReturn,
@@ -805,7 +815,7 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
     <div class="portfolio-results">
       <h2>Portfolio Optimization Results</h2>
       
-      ${createCorrelationChartsHTML(tickers, alignedData)}
+      ${createCorrelationChartsHTML(tickers, alignedData, analysisMonths)}
       
       <div class="portfolio-summary">
         <h3>Portfolio Summary</h3>
@@ -975,6 +985,7 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
   html += `
       <div class="data-statistics">
         <h3>Data Statistics</h3>
+        <p><strong>Analysis Period:</strong> Last ${analysisMonths} ${analysisMonths === 1 ? 'month' : 'months'}</p>
         <p><strong>Data Period:</strong> ${getDataDateRange(allPriceData)}</p>
         <p><strong>Common Observations:</strong> ${alignedData.length > 0 ? alignedData[0].closes.length : 0} data points</p>
         <p><strong>Calculation Method:</strong> ${tickers.length <= 4 ? 'Grid Search Optimization' : 'Random Search Optimization'}</p>
@@ -1497,7 +1508,7 @@ function drawCorrelationChart(canvas, pairData, windowSize) {
 /**
  * Create HTML for correlation rolling average charts
  */
-function createCorrelationChartsHTML(tickers, alignedData) {
+function createCorrelationChartsHTML(tickers, alignedData, analysisMonths = 6) {
   if (!alignedData || alignedData.length === 0 || tickers.length < 2) return '';
   
   const chartHeight = 200;
@@ -1512,7 +1523,8 @@ function createCorrelationChartsHTML(tickers, alignedData) {
     <div class="correlation-charts">
       <h3>60-Day Rolling Average of Correlations</h3>
       <p class="chart-description">
-        These charts show how the correlations between your assets have changed over time, with a 60-day rolling average to smooth out short-term fluctuations. 
+        These charts show how the correlations between your assets have changed over the last ${analysisMonths} ${analysisMonths === 1 ? 'month' : 'months'}, 
+        with a 60-day rolling average to smooth out short-term fluctuations. 
         <strong>Understanding correlation trends is crucial for portfolio optimization</strong> — when correlations increase, diversification benefits decrease, 
         and the optimizer may reduce allocation to those assets to maintain optimal risk levels.
       </p>
