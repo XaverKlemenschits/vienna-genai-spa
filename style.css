@@ -154,3 +154,194 @@ button:focus {
   color: var(--vscode-text-muted);
   border-top: 1px solid var(--vscode-border);
 }
+
+/* Portfolio Results Styling */
+.portfolio-results {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.portfolio-summary,
+.portfolio-allocation,
+.research-notes,
+.data-statistics {
+  border: 1px solid var(--vscode-border);
+  border-radius: 4px;
+  padding: 1.25rem;
+  background: var(--vscode-panel-bg);
+}
+
+.portfolio-summary h3,
+.portfolio-allocation h3,
+.research-notes h3,
+.data-statistics h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--vscode-text);
+  border-bottom: 1px solid var(--vscode-border);
+  padding-bottom: 0.5rem;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: var(--vscode-text-secondary);
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.summary-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--vscode-accent);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Allocation Chart */
+.allocation-chart {
+  margin-bottom: 1.5rem;
+}
+
+.allocation-item {
+  margin-bottom: 0.5rem;
+}
+
+.allocation-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 2.5rem;
+  background: var(--vscode-input-bg);
+  border-radius: 3px;
+  padding: 0 1rem;
+  transition: width 0.3s ease;
+  border: 1px solid var(--vscode-input-border);
+}
+
+.allocation-ticker {
+  font-weight: 600;
+  color: var(--vscode-text);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.allocation-percent {
+  font-size: 0.85rem;
+  color: var(--vscode-text-secondary);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Allocation Table */
+.allocation-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.allocation-table th,
+.allocation-table td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-border);
+}
+
+.allocation-table th {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--vscode-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.allocation-table td {
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.allocation-table tbody tr:hover {
+  background: rgba(0, 122, 204, 0.1);
+}
+
+.table-bar {
+  height: 0.5rem;
+  background: var(--vscode-accent);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Research Notes */
+.research-notes {
+  margin-top: 1rem;
+}
+
+.note-item {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--vscode-border);
+}
+
+.note-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.note-item h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--vscode-accent);
+}
+
+.note-item p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--vscode-text);
+  line-height: 1.6;
+}
+
+/* Data Statistics */
+.data-statistics {
+  font-size: 0.85rem;
+  color: var(--vscode-text-secondary);
+}
+
+.data-statistics p {
+  margin: 0 0 0.5rem;
+}
+
+.data-statistics p:last-child {
+  margin: 0;
+}
+
+.data-statistics strong {
+  color: var(--vscode-text);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .allocation-bar {
+    height: 2rem;
+    font-size: 0.85rem;
+  }
+  
+  .allocation-ticker {
+    font-size: 0.9rem;
+  }
+  
+  .allocation-percent {
+    font-size: 0.8rem;
+  }
+}
