@@ -577,16 +577,6 @@ function renderResults(tickers, priceDataMap, portfolioData, correlationMatrix) 
   // Build the final results content
   const finalHtml = `
     <div class="portfolio-results">
-      <div class="chart-container">
-        <h3>Inverse Volatility Allocation</h3>
-        <canvas id="inverse-volatility-chart"></canvas>
-      </div>
-      
-      <div class="chart-container">
-        <h3>Sharpe Ratio Allocation</h3>
-        <canvas id="sharpe-ratio-chart"></canvas>
-      </div>
-      
       <div class="correlation-container">
         <h3>Correlation Matrix</h3>
         <div id="correlation-matrix">${correlationHtml}</div>
