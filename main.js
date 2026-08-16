@@ -956,11 +956,20 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
   } = optimization;
   
   // Sort results by weight (descending)
-  const sortedResults = tickers.map((ticker, index) => ({
-    ticker,
-    weight: weights[index] || 0,
-    note: notes[ticker] || ''
-  })).sort((a, b) => b.weight - a.weight);
+  // riskFreeRate arrives as a raw percentage (e.g. 2 for 2%); convert to a daily
+  // decimal to match the optimizer's convention (main.js:230) before annualizing.
+  const riskFreeRateDaily = riskFreeRate / 100 / TRADING_DAYS_PER_YEAR;
+  const annualRiskFreeRate = annualizeReturn(riskFreeRateDaily);
+  const sortedResults = tickers.map((ticker, index) => {
+    const assetAnnualReturn = annualizeReturn(meanReturns[index]);
+    const assetAnnualVolatility = annualizeVolatility(Math.sqrt(covMatrix[index][index]));
+    return {
+      ticker,
+      weight: weights[index] || 0,
+      sharpe: calculateSharpeRatio(assetAnnualReturn, assetAnnualVolatility, annualRiskFreeRate),
+      note: notes[ticker] || ''
+    };
+  }).sort((a, b) => b.weight - a.weight);
   
   // Calculate the sum of weights (should be ~1)
   const totalWeight = sortedResults.reduce((sum, item) => sum + item.weight, 0);
@@ -1037,17 +1046,19 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
           <thead>
             <tr>
               <th>Ticker</th>
+              <th>Sharpe Ratio</th>
               <th>Weight</th>
               <th>Allocation</th>
             </tr>
           </thead>
           <tbody>
   `;
-  
+
   for (const item of sortedResults) {
     html += `
             <tr>
               <td><strong>${item.ticker}</strong></td>
+              <td>${item.sharpe.toFixed(2)}</td>
               <td>${formatPercent(item.weight)}</td>
               <td>
                 <div class="table-bar" style="width: ${(item.weight * 100).toFixed(1)}%"></div>
