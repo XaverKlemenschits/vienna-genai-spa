@@ -1446,7 +1446,7 @@ function calculateWindowCorrelationMatrix(windowReturns) {
   
   // Convert covariance to correlation matrix
   const corrMatrix = [];
-  const stdDevs = covMatrix.map(row => Math.sqrt(row[0]));
+  const stdDevs = covMatrix.map((row, i) => Math.sqrt(row[i]));
   
   for (let i = 0; i < nAssets; i++) {
     const row = [];
@@ -1473,7 +1473,7 @@ function calculateCurrentCorrelationMatrix(alignedData) {
   const { covMatrix } = calculatePortfolioStatistics(returnsData);
   
   // Convert covariance to correlation
-  const stdDevs = covMatrix.map(row => Math.sqrt(row[0]));
+  const stdDevs = covMatrix.map((row, i) => Math.sqrt(row[i]));
   const corrMatrix = [];
   
   for (let i = 0; i < nAssets; i++) {
