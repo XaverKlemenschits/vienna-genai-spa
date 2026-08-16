@@ -1009,6 +1009,12 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
       
       <div class="portfolio-allocation">
         <h3>Optimal Allocation</h3>
+        <div class="allocation-pie-container">
+          <div class="allocation-pie">
+            <canvas id="allocation-pie-chart" width="320" height="320"></canvas>
+          </div>
+          <div class="pie-legend" id="allocation-pie-legend"></div>
+        </div>
         <div class="allocation-chart">
   `;
   
@@ -1156,6 +1162,10 @@ function renderResults(tickers, allPriceData, alignedData, returnsData, optimiza
   // Draw the charts after HTML is inserted
   setTimeout(() => {
     drawAllCorrelationCharts(alignedData);
+    const allocationPieCanvas = document.getElementById('allocation-pie-chart');
+    if (allocationPieCanvas) {
+      drawAllocationPieChart(allocationPieCanvas, sortedResults);
+    }
   }, 10);
 }
 
@@ -1541,6 +1551,106 @@ function calculateRollingAverage(data, windowSize) {
   }
   
   return result;
+}
+
+/**
+ * Draw the optimal allocation as a pie chart with a legend.
+ * sortedResults is an array of { ticker, weight, note } sorted by weight desc.
+ */
+function drawAllocationPieChart(canvas, sortedResults) {
+  if (!canvas || !sortedResults || sortedResults.length === 0) return;
+
+  const ctx = canvas.getContext('2d');
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // Clear canvas and fill panel background
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = '#252526';
+  ctx.fillRect(0, 0, width, height);
+
+  // Only items with non-zero weight get a slice
+  const items = sortedResults.filter(item => item.weight > 0);
+  if (items.length === 0) return;
+
+  // Palette tuned for the dark theme
+  const palette = [
+    '#007acc', // accent blue
+    '#4caf50', // green
+    '#ff7043', // deep orange
+    '#ab47bc', // purple
+    '#ffd54f', // amber
+    '#26c6da', // cyan
+    '#ef5350', // red
+    '#7e57c2', // deep purple
+    '#66bb6a', // light green
+    '#ff8a65', // orange
+    '#29b6f6', // light blue
+    '#ec407a'  // pink
+  ];
+
+  const totalWeight = items.reduce((sum, item) => sum + item.weight, 0);
+  if (totalWeight <= 0) return;
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radius = Math.min(width, height) / 2 - 12;
+
+  let startAngle = -Math.PI / 2; // start at top
+
+  // Draw slices
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const sliceAngle = (item.weight / totalWeight) * Math.PI * 2;
+    const endAngle = startAngle + sliceAngle;
+
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = palette[i % palette.length];
+    ctx.fill();
+
+    // Thin border between slices for separation
+    ctx.strokeStyle = '#252526';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Percentage label on slices large enough to fit
+    const percent = (item.weight / totalWeight) * 100;
+    if (percent >= 5) {
+      const midAngle = startAngle + sliceAngle / 2;
+      const labelRadius = radius * 0.62;
+      const labelX = centerX + Math.cos(midAngle) * labelRadius;
+      const labelY = centerY + Math.sin(midAngle) * labelRadius;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Segoe UI, Roboto, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${percent.toFixed(1)}%`, labelX, labelY);
+    }
+
+    startAngle = endAngle;
+  }
+
+  // Build the legend as HTML next to the canvas
+  const legend = document.getElementById('allocation-pie-legend');
+  if (legend) {
+    legend.innerHTML = items
+      .map((item, i) => {
+        const percent = ((item.weight / totalWeight) * 100).toFixed(1);
+        const color = palette[i % palette.length];
+        return `
+          <div class="pie-legend-item">
+            <span class="pie-legend-swatch" style="background: ${color}"></span>
+            <span class="pie-legend-ticker">${item.ticker}</span>
+            <span class="pie-legend-percent">${percent}%</span>
+          </div>
+        `;
+      })
+      .join('');
+  }
 }
 
 /**
